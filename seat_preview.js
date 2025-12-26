@@ -23,7 +23,6 @@ if (IS_SEAT_LAYOUT) {
 // ==========================================
 function runExtractorMode() {
     injectSpy();
-    // attemptAutoClick();
 }
 
 function injectSpy() {
@@ -49,80 +48,6 @@ function injectSpy() {
             }
         }
     });
-}
-
-function attemptAutoClick() {
-
-    let attempts = 0;
-    const maxAttempts = 50; // 50 * 200ms = 10s
-
-    const interval = setInterval(() => {
-        if (canvasFound) {
-            clearInterval(interval);
-            return;
-        }
-
-        attempts++;
-
-        if (attempts > maxAttempts) {
-            clearInterval(interval);
-            window.parent.postMessage({ type: 'SEAT_DATA_ERROR', url: window.location.href, reason: "Timeout" }, '*');
-            return;
-        }
-
-        // AGGRESSIVE CLICKING
-        // const qty1 = document.querySelector('#qty-1') ||
-        //     document.querySelector('li[data-value="1"]') ||
-        //     document.querySelector('.qty-list li:first-child') ||
-        //     findByIdOrText("1");
-
-        // if (qty1 && isVisible(qty1)) triggerClick(qty1);
-
-        const mainBtn = findButtonByText(["Select Seats", "Proceed", "Book", "Continue"]);
-        if (mainBtn) {
-            const visible = isVisible(mainBtn);
-            if (visible) {
-                triggerClick(mainBtn);
-            }
-        }
-
-        const secondaryBtn = findButtonByText(["Accept", "Okay", "Got it", "Not Now", "Skip"]);
-        if (secondaryBtn) {
-            const visible = isVisible(secondaryBtn);
-            if (visible) {
-                triggerClick(secondaryBtn);
-            }
-        }
-    }, 250); // Fast Poll
-}
-
-function triggerClick(el) {
-    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-    el.click();
-}
-
-function findByIdOrText(txt) {
-    const els = document.querySelectorAll('li, div, span');
-    for (const el of els) {
-        if (el.innerText.trim() === txt) return el;
-    }
-    return null;
-}
-
-function findButtonByText(texts) {
-    if (!Array.isArray(texts)) texts = [texts];
-    const selector = "button, div[role='button'], a, span.btn-text, div.btn-text";
-    const els = document.querySelectorAll(selector);
-    for (const el of els) {
-        const t = (el.innerText || "").trim().toUpperCase();
-        if (texts.some(target => t === target.toUpperCase())) return el;
-    }
-    return null;
-}
-
-function isVisible(el) {
-    return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
 }
 
 // ==========================================
@@ -236,30 +161,68 @@ function runUIMode() {
         currentIframe.style.cssText = "position:fixed; bottom:0; left:0; width:1366px; height:768px; opacity:0.001; pointer-events:none; z-index:-1;";
 
         // RETRY LOGIC
+        // Strategies: 
+        // 1. Map Lookup (e.g. bengaluru -> bang)
+        // 2. 3-char substring (e.g. hyderabad -> hyd)
+        // 3. 4-char substring (e.g. hyderabad -> hyde)
+
+        const REGION_MAP = {
+            "bengaluru": "bang",
+            "hyderabad": "hyd",
+            "mumbai": "mumbai",
+            "national-capital-region-ncr": "ncr",
+            "chennai": "chen",
+            "pune": "pune",
+            "kolkata": "kolk",
+            "kochi": "koch",
+            "chandigarh": "chd",
+            "ahmedabad": "ahd",
+        };
+
         currentIframe.onload = function () {
             try {
-                // Check if we are still on the seat layout page
-                // Note: Accessing contentWindow.location.href might fail if cross-origin (e.g. redirected to different domain), 
-                // but usually BMS redirects within the same domain.
                 const currentUrl = this.contentWindow.location.href;
 
                 if (!currentUrl.includes('seat-layout')) {
                     let retryLevel = parseInt(this.dataset.retryLevel || '0');
-                    if (retryLevel < 2) {
+                    if (retryLevel < 3) {
                         retryLevel++;
                         this.dataset.retryLevel = retryLevel;
 
                         // console.log(`[RetryLogic] Redirected to ${currentUrl}. Retry Level: ${retryLevel}`);
 
-                        const charCount = retryLevel === 1 ? 3 : 4;
-                        const shortRegion = meta.region.substring(0, charCount);
+                        let newRegion = null;
+                        const originalRegion = meta.region.toLowerCase();
 
-                        // console.log(`[RetryLogic] Trying region with first ${charCount} chars: ${shortRegion}`);
-                        const newMeta = { ...meta, region: shortRegion };
-                        const newUrl = constructSeatUrl(newMeta) + `?ts=${Date.now()}`;
+                        if (retryLevel === 1) {
+                            // Strategy 1: Map Lookup
+                            newRegion = REGION_MAP[originalRegion];
+                            if (!newRegion) {
+                                // console.log(`[RetryLogic] No map entry for ${originalRegion}, skipping to Level 2`);
+                                retryLevel++; // Skip to level 2 immediately
+                                this.dataset.retryLevel = retryLevel;
+                            }
+                        }
 
-                        // console.log(`[RetryLogic] New URL: ${newUrl}`);
-                        this.src = newUrl;
+                        if (retryLevel === 2) {
+                            // Strategy 2: 3-char substring
+                            newRegion = originalRegion.substring(0, 3);
+                        }
+
+                        if (retryLevel === 3) {
+                            // Strategy 3: 4-char substring
+                            newRegion = originalRegion.substring(0, 4);
+                        }
+
+                        if (newRegion) {
+                            // console.log(`[RetryLogic] Retrying with region: ${newRegion}`);
+                            const newMeta = { ...meta, region: newRegion };
+                            const newUrl = constructSeatUrl(newMeta) + `?ts=${Date.now()}`;
+                            // console.log(`[RetryLogic] New URL: ${newUrl}`);
+                            this.src = newUrl;
+                        } else {
+                            // console.log(`[RetryLogic] Aborting, no region strategy found.`);
+                        }
                     }
                 }
             } catch (err) {

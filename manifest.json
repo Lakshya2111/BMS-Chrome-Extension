@@ -18,16 +18,6 @@
         },
         "default_title": "BookMyShow Seat Preview"
     },
-    "permissions": [
-        "activeTab",
-        "webRequest"
-    ],
-    "host_permissions": [
-        "*://*.bookmyshow.com/*"
-    ],
-    "background": {
-        "service_worker": "background.js"
-    },
     "content_scripts": [
         {
             "matches": [
