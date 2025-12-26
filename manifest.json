@@ -1,0 +1,41 @@
+{
+    "manifest_version": 3,
+    "name": "BookMyShow Seat Preview",
+    "version": "1.1",
+    "description": "Shows available/total seats on hover.",
+    "permissions": [
+        "activeTab",
+        "webRequest"
+    ],
+    "host_permissions": [
+        "*://*.bookmyshow.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*.bookmyshow.com/*"
+            ],
+            "js": [
+                "seat_preview.js"
+            ],
+            "css": [
+                "styles.css"
+            ],
+            "all_frames": true,
+            "run_at": "document_start"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "injected_spy.js"
+            ],
+            "matches": [
+                "*://*.bookmyshow.com/*"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,12 @@
+.bms-seat-preview-count {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+}
+.bms-seat-preview-loading {
+  font-style: italic;
+  opacity: 0.8;
+}
